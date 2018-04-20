@@ -60,12 +60,46 @@ class NaiveReceiver(BaseReceiver):
         self.send_to_app(seg.msg)
 
 class AltSender(BaseSender):
-    # TODO: fill me in!
-    pass
+    def __init__(self, app_interval):
+        super(AltSender, self).__init__(app_interval)
+        self.bit = True
+        self.last_seg = Segment('', '')
+
+    def receive_from_app(self, msg):
+        msg_bit_pair = (msg, self.bit)
+        seg = Segment(msg_bit_pair, 'receiver')
+        self.send_to_network(seg)
+        self.last_seg = seg
+
+    def receive_from_network(self, seg):
+        if seg.msg == "<CORRUPTED>":
+            self.send_to_network(self.last_seg)
+            return
+
+        msg_str, bit = seg.msg
+        if bit == self.bit and msg_str == "ACK":
+            self.bit = not self.bit
+
+    # TODO: figure out how to incorperate timer
+    def on_interrupt(self):
+        # self.send_to_network(self.last_seg)
+        pass
 
 class AltReceiver(BaseReceiver):
-    # TODO: fill me in!
-    pass
+    def __init__(self):
+        super(AltReceiver, self).__init__()
+        self.bit = True
+
+    def receive_from_client(self, seg):
+        if seg.msg == "<CORRUPTED>":
+            self.send_to_network(Segment(("NAK",self.bit), 'sender'))
+            return
+
+        msg_str, bit = seg.msg
+        if bit == self.bit:
+            self.send_to_app(msg_str)
+            self.send_to_network(Segment(("ACK",bit), 'sender'))
+            self.bit = not self.bit
 
 class GBNSender(BaseSender):
     # TODO: fill me in!
