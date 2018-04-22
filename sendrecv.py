@@ -122,34 +122,37 @@ class GBNSender(BaseSender):
             msg_sn_pair = (msg, self.seq_num)
             seg = Segment(msg_sn_pair, 'receiver')
             self.send_to_network(seg)
-            self.last_n[self.seq_num % self.n] = seg
+            self.last_n[self.seq_num - self.base] = seg
             if self.seq_num == self.base:
                 self.start_timer(self.app_interval)
             self.seq_num += 1
+            if self.seq_num == self.base + self.n:
+                self.disallow_app_msgs()
             
 
     def receive_from_network(self, seg):
         if seg.msg == "<CORRUPTED>":
-            self.base = 0
-            self.seq_num = 0
             return
 
         # not corrumpt
         msg_str, n = seg.msg
         self.base = n+1
+        self.end_timer()
+        if self.seq_num - self.base < self.n:
+            self.allow_app_msgs()
+        
         if self.base == self.seq_num:
             self.end_timer()
         else:
             self.start_timer(self.app_interval)
 
     def on_interrupt(self):
-        for n in range(0, self.n):
-            ind = self.seq_num - self.n + n
-            seg = self.last_n[ind % self.n]
+        for n in range(self.base, self.seq_num):
+            seg = self.last_n[n - self.base]
             if seg != None:
                 self.send_to_network(seg) 
         self.start_timer(self.app_interval)
-        
+         
 class GBNReceiver(BaseReceiver):
     def __init__(self):
         super(GBNReceiver, self).__init__()
@@ -157,8 +160,7 @@ class GBNReceiver(BaseReceiver):
 
     def receive_from_client(self, seg):
         if seg.msg == "<CORRUPTED>" or seg.msg[1] != self.seq_num:
-            self.seq_num = 0
-            self.send_to_network(Segment(("ACK", -1), 'sender'))
+            self.send_to_network(Segment(("ACK", self.seq_num-1), 'sender'))
             return
 
         msg_str, seq_num = seg.msg
