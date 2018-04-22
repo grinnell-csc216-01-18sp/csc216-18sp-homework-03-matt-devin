@@ -24,10 +24,10 @@ class BaseSender(object):
         self.output_queue.put(seg)
 
     def disallow_app_msgs(self):
-        self.blocked = False
+        self.blocked = True
 
     def allow_app_msgs(self):
-        self.blocked = True
+        self.blocked = False
 
     def step(self):
         self.app_timer += 1
