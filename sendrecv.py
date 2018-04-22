@@ -34,9 +34,10 @@ from sendrecvbase import BaseSender, BaseReceiver
 import Queue
 
 class Segment:
-    def __init__(self, msg, dst):
+    def __init__(self, msg, dst, msg_id=None):
         self.msg = msg
         self.dst = dst
+        self.msg_id = msg_id
 
 class NaiveSender(BaseSender):
     def __init__(self, app_interval):
@@ -66,8 +67,7 @@ class AltSender(BaseSender):
         self.last_seg = Segment('', '')
 
     def receive_from_app(self, msg):
-        msg_bit_pair = (msg, self.bit)
-        seg = Segment(msg_bit_pair, 'receiver')
+        seg = Segment(msg, 'receiver', self.bit)
         self.send_to_network(seg)
         self.last_seg = seg
         self.start_timer(self.app_interval)
@@ -77,14 +77,12 @@ class AltSender(BaseSender):
         if seg.msg == "<CORRUPTED>":
             return
 
-        msg_str, bit = seg.msg
-
-        if bit == self.bit and msg_str == "ACK":
+        if seg.msg_id == self.bit and seg.msg == "ACK":
             self.bit = not self.bit
             self.end_timer()
             self.allow_app_msgs()
         
-        elif bit != self.bit and msg_str == "ACK":
+        elif seg.msg_id != self.bit and seg.msg == "ACK":
             return
     
     def on_interrupt(self):
@@ -98,18 +96,16 @@ class AltReceiver(BaseReceiver):
 
     def receive_from_client(self, seg):
         if seg.msg == "<CORRUPTED>":
-            self.send_to_network(Segment(("ACK", not self.bit), 'sender'))
+            self.send_to_network(Segment("ACK", 'sender', (not self.bit)))
             return
 
-        msg_str, bit = seg.msg
-
-        if bit == self.bit:
-            self.send_to_app(msg_str)
-            self.send_to_network(Segment(("ACK",bit), 'sender'))
+        if seg.msg_id == self.bit:
+            self.send_to_app(seg.msg)
+            self.send_to_network(Segment("ACK", 'sender', (self.bit)))
             self.bit = not self.bit
 
         else:
-            self.send_to_network(Segment(("ACK", not self.bit), 'sender'))
+            self.send_to_network(Segment("ACK", 'sender', (not self.bit)))
 
 class GBNSender(BaseSender):
     def __init__(self, app_interval, **args):
@@ -126,8 +122,7 @@ class GBNSender(BaseSender):
 
     def receive_from_app(self, msg):
         if self.seq_num < self.base + self.n:
-            msg_sn_pair = (msg, self.seq_num)
-            seg = Segment(msg_sn_pair, 'receiver')
+            seg = Segment(msg, 'receiver', self.seq_num)
             self.send_to_network(seg)
             self.last_n[self.seq_num - self.base] = seg
             if self.seq_num == self.base:
@@ -135,15 +130,13 @@ class GBNSender(BaseSender):
             self.seq_num += 1
             if self.seq_num == self.base + self.n:
                 self.disallow_app_msgs()
-            
 
     def receive_from_network(self, seg):
         if seg.msg == "<CORRUPTED>":
             return
 
-        # not corrumpt
-        msg_str, n = seg.msg
-        self.base = n+1
+        # not corrupt
+        self.base = seg.msg_id+1
         self.end_timer()
         if self.seq_num - self.base < self.n:
             self.allow_app_msgs()
@@ -166,12 +159,11 @@ class GBNReceiver(BaseReceiver):
         self.seq_num = 0
 
     def receive_from_client(self, seg):
-        if seg.msg == "<CORRUPTED>" or seg.msg[1] != self.seq_num:
-            self.send_to_network(Segment(("ACK", self.seq_num-1), 'sender'))
+        if seg.msg == "<CORRUPTED>" or seg.msg_id != self.seq_num:
+            self.send_to_network(Segment("ACK", 'sender', self.seq_num-1))
             return
 
-        msg_str, seq_num = seg.msg
-        if seq_num == self.seq_num:
-            self.send_to_app(msg_str)
-            self.send_to_network(Segment(("ACK",self.seq_num), 'sender'))
+        if seg.msg_id == self.seq_num:
+            self.send_to_app(seg.msg)
+            self.send_to_network(Segment("ACK", 'sender', self.seq_num))
             self.seq_num = self.seq_num + 1
