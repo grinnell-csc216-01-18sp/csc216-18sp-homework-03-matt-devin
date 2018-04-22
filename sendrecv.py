@@ -81,7 +81,7 @@ class AltSender(BaseSender):
         msg_str, bit = seg.msg
         if bit == self.bit and msg_str == "ACK":
             self.bit = not self.bit
-            self.end_timer(self.app_interval)
+            self.end_timer()
             self.allow_app_msgs()
 
     def on_interrupt(self):
