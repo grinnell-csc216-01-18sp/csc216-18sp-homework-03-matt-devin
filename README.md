@@ -31,6 +31,6 @@ optional arguments:
 
 ## Repository Information
 
-* *(Your names and Grinnell IDs)*
-* *(The version of Python that you used)*
+* *Devin Dooley, Matt Murphy*
+* *Python 2.7*
 * *(List of external resources that you consulted)*
