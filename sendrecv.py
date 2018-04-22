@@ -75,8 +75,6 @@ class AltSender(BaseSender):
 
     def receive_from_network(self, seg):
         if seg.msg == "<CORRUPTED>":
-            self.send_to_network(self.last_seg)
-            self.start_timer(self.app_interval)
             return
 
         msg_str, bit = seg.msg
@@ -87,8 +85,7 @@ class AltSender(BaseSender):
             self.allow_app_msgs()
         
         elif bit != self.bit and msg_str == "ACK":
-            self.send_to_network(self.last_seg)
-            self.start_timer(self.app_interval)
+            return
     
     def on_interrupt(self):
         self.send_to_network(self.last_seg)
