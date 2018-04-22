@@ -123,8 +123,9 @@ class GBNSender(BaseSender):
     def receive_from_app(self, msg):
         if self.seq_num < self.base + self.n:
             seg = Segment(msg, 'receiver', self.seq_num)
+            seg_copy = Segment(msg, 'receiver', self.seq_num)
+            self.last_n[self.seq_num - self.base] = seg_copy 
             self.send_to_network(seg)
-            self.last_n[self.seq_num - self.base] = seg
             if self.seq_num == self.base:
                 self.start_timer(self.app_interval)
             self.seq_num += 1
@@ -146,8 +147,8 @@ class GBNSender(BaseSender):
             self.start_timer(self.app_interval)
 
     def on_interrupt(self):
-        for n in range(self.base, self.seq_num):
-            seg = self.last_n[n - self.base]
+        for n in range(0, self.n):
+            seg = self.last_n[n]
             if seg != None:
                 self.send_to_network(seg) 
         self.start_timer(self.app_interval)
