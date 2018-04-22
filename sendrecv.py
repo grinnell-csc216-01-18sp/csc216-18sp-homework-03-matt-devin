@@ -95,7 +95,7 @@ class AltReceiver(BaseReceiver):
 
     def receive_from_client(self, seg):
         if seg.msg == "<CORRUPTED>":
-            self.send_to_network(Segment(("NAK",self.bit), 'sender'))
+            self.send_to_network(Segment(("ACK", not self.bit), 'sender'))
             return
 
         msg_str, bit = seg.msg
