@@ -18,7 +18,7 @@ class BaseSender(object):
         self.custom_enabled  = False
         self.custom_interval = 0
         self.custom_timer    = 0
-        self.blocked         = false
+        self.blocked         = False
 
     def send_to_network(self, seg):
         self.output_queue.put(seg)
