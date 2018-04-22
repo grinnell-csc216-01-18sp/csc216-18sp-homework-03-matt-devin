@@ -135,8 +135,7 @@ class GBNSender(BaseSender):
         msg_str, n = seg.msg
         self.base = n+1
         if self.base == self.seq_num:
-            # stop timer
-            pass
+            self.end_timer()
         else:
             self.start_timer(self.app_interval)
 
