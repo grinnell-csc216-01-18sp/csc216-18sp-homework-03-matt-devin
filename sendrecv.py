@@ -137,7 +137,6 @@ class GBNSender(BaseSender):
 
         # not corrupt
         self.base = seg.msg_id+1
-        self.end_timer()
         if self.seq_num - self.base < self.n:
             self.allow_app_msgs()
         
