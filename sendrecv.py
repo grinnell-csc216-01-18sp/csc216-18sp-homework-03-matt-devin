@@ -68,25 +68,31 @@ class AltSender(BaseSender):
 
     def receive_from_app(self, msg):
         seg = Segment(msg, 'receiver', self.bit)
+        seg_cpy = Segment(msg, 'receiver', self.bit)
         self.send_to_network(seg)
-        self.last_seg = seg
+        self.last_seg = seg_cpy
         self.start_timer(self.app_interval)
         self.disallow_app_msgs()
 
     def receive_from_network(self, seg):
         if seg.msg == "<CORRUPTED>":
+            print("CORRUPTED")
             return
 
         if seg.msg_id == self.bit and seg.msg == "ACK":
+            print("receieved")
             self.bit = not self.bit
             self.end_timer()
             self.allow_app_msgs()
         
         elif seg.msg_id != self.bit and seg.msg == "ACK":
+            print("wrong bit")
             return
     
     def on_interrupt(self):
-        self.send_to_network(self.last_seg)
+        print('TIMEOUT')
+        new_seg = Segment(self.last_seg.msg, 'receiver', self.last_seg.msg_id)
+        self.send_to_network(new_seg)
         self.start_timer(self.app_interval)
 
 class AltReceiver(BaseReceiver):
@@ -96,15 +102,18 @@ class AltReceiver(BaseReceiver):
 
     def receive_from_client(self, seg):
         if seg.msg == "<CORRUPTED>":
+            print("received corrupted")
             self.send_to_network(Segment("ACK", 'sender', (not self.bit)))
             return
 
         if seg.msg_id == self.bit:
+            print("received good")
             self.send_to_app(seg.msg)
             self.send_to_network(Segment("ACK", 'sender', (self.bit)))
             self.bit = not self.bit
 
         else:
+            print("recieved wrong bit")
             self.send_to_network(Segment("ACK", 'sender', (not self.bit)))
 
 class GBNSender(BaseSender):
@@ -124,7 +133,7 @@ class GBNSender(BaseSender):
         if self.seq_num < self.base + self.n:
             seg = Segment(msg, 'receiver', self.seq_num)
             seg_copy = Segment(msg, 'receiver', self.seq_num)
-            self.last_n[self.seq_num - self.base] = seg_copy 
+            self.last_n[self.seq_num % self.n] = seg_copy 
             self.send_to_network(seg)
             if self.seq_num == self.base:
                 self.start_timer(self.app_interval)
@@ -147,10 +156,11 @@ class GBNSender(BaseSender):
             self.start_timer(self.app_interval)
 
     def on_interrupt(self):
-        for n in range(0, self.n):
-            seg = self.last_n[n]
+        for ind in range(self.seq_num - self.n, self.seq_num):
+            seg = self.last_n[ind % self.n]
             if seg != None:
-                self.send_to_network(seg) 
+                new_seg = Segment(seg.msg, 'receiver', seg.msg_id)
+                self.send_to_network(new_seg) 
         self.start_timer(self.app_interval)
          
 class GBNReceiver(BaseReceiver):
