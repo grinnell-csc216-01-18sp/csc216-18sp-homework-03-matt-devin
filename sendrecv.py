@@ -76,21 +76,17 @@ class AltSender(BaseSender):
 
     def receive_from_network(self, seg):
         if seg.msg == "<CORRUPTED>":
-            print("CORRUPTED")
-            return
+            self.on_interrupt()
 
         if seg.msg_id == self.bit and seg.msg == "ACK":
-            print("receieved")
             self.bit = not self.bit
             self.end_timer()
             self.allow_app_msgs()
         
         elif seg.msg_id != self.bit and seg.msg == "ACK":
-            print("wrong bit")
-            return
+            self.on_interrupt()
     
     def on_interrupt(self):
-        print('TIMEOUT')
         new_seg = Segment(self.last_seg.msg, 'receiver', self.last_seg.msg_id)
         self.send_to_network(new_seg)
         self.start_timer(self.app_interval)
@@ -102,18 +98,15 @@ class AltReceiver(BaseReceiver):
 
     def receive_from_client(self, seg):
         if seg.msg == "<CORRUPTED>":
-            print("received corrupted")
             self.send_to_network(Segment("ACK", 'sender', (not self.bit)))
             return
 
         if seg.msg_id == self.bit:
-            print("received good")
             self.send_to_app(seg.msg)
             self.send_to_network(Segment("ACK", 'sender', (self.bit)))
             self.bit = not self.bit
 
         else:
-            print("recieved wrong bit")
             self.send_to_network(Segment("ACK", 'sender', (not self.bit)))
 
 class GBNSender(BaseSender):
