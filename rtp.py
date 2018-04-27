@@ -62,25 +62,21 @@ class Simulation:
     def run(self, n):
         self.sender.tcp_handshake()
         self.push_to_network(0,self.sender.output_queue.get())
-        print("first handshake good")
         if (self.network_queue.empty()):
             print("nq empty 1")
             return
         (_, seg) = self.network_queue.get()
-        print("got first seg")
 
         self.receiver.tcp_handshake(seg)
         self.push_to_network(0, self.receiver.output_queue.get())
-        print("second handshake good")
         if (self.network_queue.empty()):
             print("nq empty 2")
             return
         (_, seg) = self.network_queue.get()
-        print("got second seg")
 
         self.sender.tcp_handshake_part_three(seg)
         self.push_to_network(0, self.sender.output_queue.get())
-        print("third handshake good")
+        (_, seg) = self.network_queue.get()
 
         for step in range(1, n+1):
             
@@ -106,6 +102,31 @@ class Simulation:
                 self.push_to_network(step, self.sender.output_queue.get())
             if not self.receiver.output_queue.empty():
                 self.push_to_network(step, self.receiver.output_queue.get())
+
+        while not self.network_queue.empty():
+            self.network_queue.get()
+        while not self.sender.output_queue.empty():
+            self.sender.output_queue.get()
+        while not self.receiver.output_queue.empty():
+            self.receiver.output_queue.get()
+
+        self.sender.tcp_close()
+        self.push_to_network(0,self.sender.output_queue.get())
+        if (self.network_queue.empty()):
+            print("nq empty 1")
+            return
+        (_, seg) = self.network_queue.get()
+
+        self.receiver.tcp_close_ack(seg)
+        
+        self.receiver.tcp_close()
+        self.push_to_network(0, self.receiver.output_queue.get())
+        if (self.network_queue.empty()):
+            print("nq empty 2")
+            return
+        (_, seg) = self.network_queue.get()
+
+        self.sender.tcp_close_ack(seg)
 
 def main():
     parser = argparse.ArgumentParser(
