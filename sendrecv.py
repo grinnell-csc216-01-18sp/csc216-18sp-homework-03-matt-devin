@@ -78,7 +78,7 @@ class AltSender(BaseSender):
         self.bit = not self.bit
 
     def tcp_handshake_part_three(self, seg):
-        if seg.msg == self.bit:
+        if seg.msg != self.bit:
             print("something's wrong")
         if seg.syn != 1:
             print("syn is wrong")
@@ -98,6 +98,7 @@ class AltSender(BaseSender):
         self.last_seg = seg_cpy
         self.start_timer(self.app_interval)
         self.disallow_app_msgs()
+        self.bit = not self.bit
 
     def receive_from_network(self, seg):
         if seg.msg == "<CORRUPTED>":
@@ -107,7 +108,6 @@ class AltSender(BaseSender):
 
         if seg.msg_id == self.server_bit and seg.msg == "ACK":
             print("received ack with bit {}".format(seg.msg_id))
-            self.bit = not self.bit
             self.server_bit = not self.server_bit
             self.end_timer()
             self.allow_app_msgs()
@@ -150,7 +150,8 @@ class AltReceiver(BaseReceiver):
 
         self.client_bit = seg.msg_id
         self.bit = random.randint(0, 1)
-        new_seg = Segment(not self.client_bit, 'sender', self.bit)
+        self.client_bit = not self.client_bit
+        new_seg = Segment(self.client_bit, 'sender', self.bit)
         seg.syn = 1
         self.send_to_network(seg)
         self.bit = not self.bit
