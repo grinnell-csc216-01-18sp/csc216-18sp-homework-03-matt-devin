@@ -60,9 +60,32 @@ class Simulation:
             self.network_queue.put( (step + self.net_delay, seg) )
 
     def run(self, n):
+        self.sender.tcp_handshake()
+        self.push_to_network(0,self.sender.output_queue.get())
+        print("first handshake good")
+        if (self.network_queue.empty()):
+            print("nq empty 1")
+            return
+        (_, seg) = self.network_queue.get()
+        print("got first seg")
+
+        self.receiver.tcp_handshake(seg)
+        self.push_to_network(0, self.receiver.output_queue.get())
+        print("second handshake good")
+        if (self.network_queue.empty()):
+            print("nq empty 2")
+            return
+        (_, seg) = self.network_queue.get()
+        print("got second seg")
+
+        self.sender.tcp_handshake_part_three(seg)
+        self.push_to_network(0, self.sender.output_queue.get())
+        print("third handshake good")
+
         for step in range(1, n+1):
-            self.print_debug('Step {}:'.format(step))
+            
             # 1. Step the sender and receiver
+            self.print_debug('Step {}:'.format(step))
             self.sender.step()
             self.receiver.step()
 
