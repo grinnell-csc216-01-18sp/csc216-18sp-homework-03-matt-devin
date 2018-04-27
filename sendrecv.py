@@ -32,12 +32,15 @@
 from sendrecvbase import BaseSender, BaseReceiver
 
 import Queue
+import random
 
 class Segment:
     def __init__(self, msg, dst, msg_id=None):
         self.msg = msg
         self.dst = dst
         self.msg_id = msg_id
+        self.syn = None
+        self.fin = None
 
 class NaiveSender(BaseSender):
     def __init__(self, app_interval):
@@ -64,33 +67,57 @@ class AltSender(BaseSender):
     def __init__(self, app_interval):
         super(AltSender, self).__init__(app_interval)
         self.bit = True
-        self.last_seg = Segment('', '')
+        self.server_bit = True
+        self.last_seg = Segment('', '', '')
+
+    def tcp_handshake(self):
+        self.bit = random.randint(0, 1)
+        seg = Segment("", 'receiver', self.bit)
+        seg.syn = 1
+        self.send_to_network(seg)
+        self.bit = not self.bit
+
+    def tcp_handshake_part_three(self, seg):
+        if seg.msg == self.bit:
+            print("something's wrong")
+        if seg.syn != 1:
+            print("syn is wrong")
+
+        self.server_bit = not seg.msg_id
+        new_seg = Segment(self.server_bit, 'receiver', self.bit)
+        copy_seg = Segment(self.server_bit, 'receiver', self.bit)
+        self.last_seg = copy_seg
+        self.send_to_network(new_seg)
+        self.bit = not self.bit
 
     def receive_from_app(self, msg):
         seg = Segment(msg, 'receiver', self.bit)
         seg_cpy = Segment(msg, 'receiver', self.bit)
         self.send_to_network(seg)
+        print("sent message with bit {}".format(seg.msg_id))
         self.last_seg = seg_cpy
         self.start_timer(self.app_interval)
         self.disallow_app_msgs()
 
     def receive_from_network(self, seg):
         if seg.msg == "<CORRUPTED>":
-            print("CORRUPTED")
+            # Force interrupt, which does not occur otherwise
+            self.on_interrupt()
             return
 
-        if seg.msg_id == self.bit and seg.msg == "ACK":
-            print("receieved")
+        if seg.msg_id == self.server_bit and seg.msg == "ACK":
+            print("received ack with bit {}".format(seg.msg_id))
             self.bit = not self.bit
+            self.server_bit = not self.server_bit
             self.end_timer()
             self.allow_app_msgs()
         
-        elif seg.msg_id != self.bit and seg.msg == "ACK":
-            print("wrong bit")
-            return
+        elif seg.msg_id != self.server_bit and seg.msg == "ACK":
+            # Force interrupt
+            print("bits wrong ack")
+            self.on_interrupt() 
     
     def on_interrupt(self):
-        print('TIMEOUT')
         new_seg = Segment(self.last_seg.msg, 'receiver', self.last_seg.msg_id)
         self.send_to_network(new_seg)
         self.start_timer(self.app_interval)
@@ -99,22 +126,35 @@ class AltReceiver(BaseReceiver):
     def __init__(self):
         super(AltReceiver, self).__init__()
         self.bit = True
+        self.client_bit = True
 
     def receive_from_client(self, seg):
         if seg.msg == "<CORRUPTED>":
-            print("received corrupted")
-            self.send_to_network(Segment("ACK", 'sender', (not self.bit)))
+            self.send_to_network(Segment("ACK", 'sender', not self.bit))
             return
 
-        if seg.msg_id == self.bit:
-            print("received good")
+        if seg.msg_id == self.client_bit:
+            print("received message with bit {}".format(seg.msg_id))
             self.send_to_app(seg.msg)
-            self.send_to_network(Segment("ACK", 'sender', (self.bit)))
+            self.send_to_network(Segment("ACK", 'sender', self.bit))
             self.bit = not self.bit
+            self.client_bit = not self.client_bit
 
         else:
-            print("recieved wrong bit")
-            self.send_to_network(Segment("ACK", 'sender', (not self.bit)))
+            self.send_to_network(Segment("ACK", 'sender', not self.bit))
+
+    def tcp_handshake(self, seg):
+        syn = seg.syn
+        if syn != 1:
+            print("syn is wrong from sender part 1")
+
+        self.client_bit = seg.msg_id
+        self.bit = random.randint(0, 1)
+        new_seg = Segment(not self.client_bit, 'sender', self.bit)
+        seg.syn = 1
+        self.send_to_network(seg)
+        self.bit = not self.bit
+
 
 class GBNSender(BaseSender):
     def __init__(self, app_interval, **args):

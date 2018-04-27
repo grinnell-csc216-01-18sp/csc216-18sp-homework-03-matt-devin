@@ -19,6 +19,18 @@ class BaseSender(object):
         self.custom_interval = 0
         self.custom_timer    = 0
         self.blocked         = False
+        self.connected       = False
+
+    def tcp_handshake(self, receiver):
+        self.connected = True
+        seg = Segment('', 'receiver')
+        seg.syn = 1
+        self.send_to_network(seg)
+        return True
+
+    def tcp_close(self, receiver):
+        self.connected = False
+        return False
 
     def send_to_network(self, seg):
         self.output_queue.put(seg)
@@ -66,6 +78,7 @@ class BaseReceiver(object):
         self.input_queue    = Queue.Queue()
         self.output_queue   = Queue.Queue()
         self.received_count = 0
+        self.connected = False
         pass
 
     def step(self):
@@ -80,5 +93,7 @@ class BaseReceiver(object):
         print('Message received ({}): {}'.format(self.received_count, msg))
 
     def receive_from_client(self, seg):
+        if not self.connected and seg.syn == 1:
+            self.connected = True
         pass
 
