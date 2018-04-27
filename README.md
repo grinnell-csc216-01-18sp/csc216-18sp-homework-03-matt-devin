@@ -33,4 +33,5 @@ optional arguments:
 
 * *Devin Dooley, Matt Murphy*
 * *Python 2.7*
-* *(List of external resources that you consulted)*
+* *Python 2.7 documentation for network queues*
+* *The TCP connection protocol does not handle corrupt messages and dropped packets*
